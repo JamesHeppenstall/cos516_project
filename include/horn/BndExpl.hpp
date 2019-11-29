@@ -125,6 +125,8 @@ namespace ufo {
 
                 // Print some diagnostic information
                 if (print) {
+                    //outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
+                    //    "UNSAT" : "SAT") << "\n";
                     outs() << "  BMC Formula (k=" << cur_bnd << "):\n    " <<
                         *bmc_formula << " (" << (unsat ? "UNSAT" : "SAT") << ")\n";
                 }
