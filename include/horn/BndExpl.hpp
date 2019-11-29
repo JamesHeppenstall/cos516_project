@@ -56,38 +56,25 @@ namespace ufo {
                 exit(0);
             }
         }
-    
-        /*Expr replaceVars(HornRuleExt* hr) {
-            while (i < hr->srcVars.size()) { 
-                Expr name = mkTerm<string>("v_" + to_string(i), e);
-                Expr var = cloneVar(hr->srcVars[i], name);
-                hr->body = replaceAll(hr->body, hr->srcVars[i], var);
-                i++;
-            }
-
-            int j = i;
-
-            while (j < n + hr->srcVars.size() + hr->dstVars.size()) {
-                Expr name = mkTerm<string>("v_" + to_string(j), e);
-                Expr var = cloneVar(hr->dstVars[j], name);
-                hr->body = replaceAll(hr->body, hr->dstVars[j], var);
-                j++;
-            }
-
-            return hr->body;
-        }*/
 
         public:
 
-        BndExpl(ExprFactory &efac, CHCs &ruleManager) : e(efac), u(e), r(ruleManager) { checkPrerequisites(); }
+        BndExpl(ExprFactory &efac, CHCs &ruleManager) : e(efac), u(e),
+            r(ruleManager) { checkPrerequisites(); }
 
-        // TODO: Helper methods (i.e. conversion from trace to SMT expression)
-        
         // Explore the set of possible traces between the current bound and the
         // given bound, and return true if no trace is satisfiable
         bool exploreTraces(int cur_bnd, int bnd, bool print = false) {
+            // Print some diagnostic information
+            if (print) {
+                outs() << "PROGRAM ENCODING:\n";
+                r.print();
+                outs() << "DIAGNOSTIC INFORMATION:\n";
+            }
+
             bool unsat = true;
 
+            // Explore traces and check if any of the traces are satisfiable
             while (unsat && cur_bnd <= bnd) {
                 Expr body = fc->body;
                 
@@ -98,23 +85,23 @@ namespace ufo {
                 }
                  
                 Expr bmc_formula = body;
-                
+
                 body = tr->body;
                 ExprVector srcVars = tr->srcVars;
                 ExprVector dstVars = tr->dstVars;
 
                 for (int k = 0; k < cur_bnd; k++) {
-                    for (int j = 0; j < dstVars.size(); j++) {
-                        int m = k * dstVars.size() + srcVars.size() + j;
-                        Expr name = mkTerm<string>("v_" + to_string(m), e);
-                        Expr var = cloneVar(dstVars[j], name);
-                        body = replaceAll(body, dstVars[j], var);
-                        dstVars[j] = var;
+                    for (int i = 0; i < dstVars.size(); i++) {
+                        int num = k * dstVars.size() + srcVars.size() + i;
+                        Expr name = mkTerm<string>("v_" + to_string(num), e);
+                        Expr var = cloneVar(dstVars[i], name);
+                        body = replaceAll(body, dstVars[i], var);
+                        dstVars[i] = var;
                     }
 
                     for (int i = 0; i < srcVars.size(); i++) {
-                        int n = k * dstVars.size() + i;
-                        Expr name = mkTerm<string>("v_" + to_string(n), e);
+                        int num = k * dstVars.size() + i;
+                        Expr name = mkTerm<string>("v_" + to_string(num), e);
                         Expr var = cloneVar(srcVars[i], name);
                         body = replaceAll(body, srcVars[i], var);
                         srcVars[i] = var;
@@ -125,27 +112,24 @@ namespace ufo {
 
                 body = qr->body;
 
-                for (int j = 0; j < qr->srcVars.size(); j++) {  
-                    int m = (cur_bnd - 1) * tr->dstVars.size() + tr->srcVars.size() + j; 
-                    Expr name = mkTerm<string>("v_" + to_string(m), e);
-                    Expr var = cloneVar(qr->srcVars[j], name);
-                    body = replaceAll(body, qr->srcVars[j], var);
+                for (int i = 0; i < qr->srcVars.size(); i++) {  
+                    int num = (cur_bnd - 1) * tr->dstVars.size() +
+                        tr->srcVars.size() + i; 
+                    Expr name = mkTerm<string>("v_" + to_string(num), e);
+                    Expr var = cloneVar(qr->srcVars[i], name);
+                    body = replaceAll(body, qr->srcVars[i], var);
                 }
 
-                outs() << "TEST: " << *body << "\n";
-
-                bmc_formula = mk<AND>(bmc_formula, body);
-                //bmc_formula = u.removeRedundantConjuncts(bmc_formula);
-                outs() << "BMC Formula (k=" << cur_bnd << "): " << *bmc_formula << "\n";
+                bmc_formula = mk<AND>(bmc_formula, body); 
                 unsat = !u.isSat(bmc_formula);
+
+                // Print some diagnostic information
+                if (print) {
+                    outs() << "  BMC Formula (k=" << cur_bnd << "):\n    " <<
+                        *bmc_formula << " (" << (unsat ? "UNSAT" : "SAT") << ")\n";
+                }
+                
                 cur_bnd++;
-            }
-
-            // TODO: Explore traces
-            // TODO: Check if any of the traces are satisfiable
-
-            if (print) {
-            // TODO: some diagnostic information
             }
 
             return unsat;
@@ -154,20 +138,15 @@ namespace ufo {
     
     // TODO: Unroll and check an SMT expression
     inline void unrollAndCheck(string smt, int bnd1, int bnd2) {
-        ExprFactory efac;
-        EZ3 z3(efac);
-        
         // Initialize the class with the CHCs 
+        ExprFactory efac;
+        EZ3 z3(efac); 
         CHCs ruleManager(efac, z3);
         ruleManager.parse(smt);
-        outs() << "Program encoding:\n";
-        ruleManager.print();
 
-        // Check that the form of the CHCs is valid
+        // Explore the possible traces between the two bounds
         BndExpl bndExpl(efac, ruleManager);
-
-        // TODO: Explore the possible traces between the two bounds
-        bndExpl.exploreTraces(1, 5);
+        bndExpl.exploreTraces(bnd1, bnd2, true);
         
         // TODO: Report something? (might need to change the return type)
     }
