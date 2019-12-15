@@ -24,7 +24,24 @@ namespace ufo
     z3(efac),
     smt (z3)
     {}
-    
+	void push() {
+		smt.push();
+	}
+	void pop() {
+		smt.pop();
+	}
+	void reset() {
+		smt.reset();
+	}
+
+	void addExpr(Expr e) {
+		smt.assertExpr(e);
+	}
+
+	bool check() {
+		return smt.solve();
+	}
+
     /**
      * SMT-check
      */
