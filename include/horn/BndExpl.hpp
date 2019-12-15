@@ -160,48 +160,48 @@ namespace ufo {
 
             // Explore traces and check if any of the traces are satisfiable
 			// Expression for initial conditions before the loop
-			Expr body = fc->body;
+			Expr initialConditions = fc->body;
 			for (int i = 0; i < fc->dstVars.size(); i++) {
 				Expr name = mkTerm<string>("v_" + to_string(i), e);
 				Expr var = cloneVar(fc->dstVars[i], name);
-				body = replaceAll(body, fc->dstVars[i], var);
+				initialConditions = replaceAll(initialConditions, fc->dstVars[i], var);
 			}
 			int k = 0;
-			Expr prevLoopBody = body;
-			cout << "adding initial conditions" << *body << "\n";
-			u.addExpr(body); // add initial conditions
+			
+			u.addExpr(initialConditions); // add initial conditions
 			u.push();
 
+            Expr prevLoopBody = initialConditions;
 			while (unsat && k <= bnd) {
 				Expr bmc_formula = prevLoopBody; // BMC formula includes the initial conditions
 
 				// Expression for loop body
 				if (k >= 1) {
-				body = tr->body;
-                ExprVector srcVars = tr->srcVars;
-                ExprVector dstVars = tr->dstVars;
-	            for (int i = 0; i < dstVars.size(); i++) {
-    	          	int num = (k-1) * dstVars.size() + srcVars.size() + i;
-					Expr name = mkTerm<string>("v_" + to_string(num), e);
-            	    Expr var = cloneVar(dstVars[i], name);
-              	    body = replaceAll(body, dstVars[i], var);
-                  	dstVars[i] = var;
-                }
+    				Expr loopBody = tr->body;
+                    ExprVector srcVars = tr->srcVars;
+                    ExprVector dstVars = tr->dstVars;
+    	            for (int i = 0; i < dstVars.size(); i++) {
+        	          	int num = (k-1) * dstVars.size() + srcVars.size() + i;
+    					Expr name = mkTerm<string>("v_" + to_string(num), e);
+                	    Expr var = cloneVar(dstVars[i], name);
+                  	    loopBody = replaceAll(loopBody, dstVars[i], var);
+                      	dstVars[i] = var;
+                    }
 
-         	    for (int i = 0; i < srcVars.size(); i++) {
-           	        int num = (k-1) * srcVars.size() + i;
-               	    Expr name = mkTerm<string>("v_" + to_string(num), e);
-                   	Expr var = cloneVar(srcVars[i], name);
-               		body = replaceAll(body, srcVars[i], var);
-                   	srcVars[i] = var;
-               	}
-            	bmc_formula = mk<AND>(bmc_formula, body);
-				prevLoopBody = bmc_formula;
+             	    for (int i = 0; i < srcVars.size(); i++) {
+               	        int num = (k-1) * srcVars.size() + i;
+                   	    Expr name = mkTerm<string>("v_" + to_string(num), e);
+                       	Expr var = cloneVar(srcVars[i], name);
+                   		loopBody = replaceAll(loopBody, srcVars[i], var);
+                       	srcVars[i] = var;
+                   	}
+                	bmc_formula = mk<AND>(bmc_formula, loopBody);
+    				prevLoopBody = bmc_formula;
 				}
-				// Add conditions for loop body
-				u.addExpr(body);
+
+				// Add conditions for loop body and save the state
+				u.addExpr(loopBody);
 				u.push();
-				outs() << "adding loop body" << *body << "\n";
 
                 Expr assertBody = qr->body;
                 for (int i = 0; i < qr->srcVars.size(); i++) {  
