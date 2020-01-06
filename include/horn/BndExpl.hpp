@@ -8,12 +8,14 @@
 
 #include "Horn.hpp"
 #include "ae/SMTUtils.hpp"
+#include <chrono>
 
 using namespace std;
 using namespace boost;
-
-#include <chrono>
 using namespace std::chrono;
+
+// This macro ensures that printed output includes BMC formula
+//#define PRINT_BMC_FORMULA
 
 namespace ufo {
     class BndExpl {
@@ -67,11 +69,10 @@ namespace ufo {
 
         // Explore the set of possible traces between the current bound and the
         // given bound, and return true if no trace is satisfiable
-        bool exploreTraces(int cur_bnd, int bnd, bool print = false) {
+        bool exploreTracesNormal(int cur_bnd, int bnd, bool print = false) {
             // Print some diagnostic information
             if (print) {
-                outs() << "=============================================\n";
-                outs() << "Explore Traces Normal Mode: \n";
+                outs() << "EXPLORING TRACES IN NORMAL MODE\n\n";
                 outs() << "PROGRAM ENCODING:\n";
                 r.print();
                 outs() << "DIAGNOSTIC INFORMATION:\n";
@@ -130,21 +131,25 @@ namespace ufo {
 		auto start = high_resolution_clock::now();
                 unsat = !u.isSat(bmc_formula);
 		auto stop = high_resolution_clock::now();
-		auto duration = duration_cast<microseconds>(stop - start); 
-		cout << "TIme taken to check BMC formula: " << duration.count() << " microseconds\n";
-                
+		auto duration = duration_cast<microseconds>(stop - start);
+
                 // Print some diagnostic information
                 if (print) {
-                    //outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
-                    //    "UNSAT" : "SAT") << "\n";
+#ifdef PRINT_BMC_FORMULA
                     outs() << "  BMC Formula (k=" << cur_bnd << "):\n    " <<
-			*bmc_formula << "\n" << " (" << (unsat ? "UNSAT" : "SAT") << ")\n\n";
+			*bmc_formula << "\n  Result: " << (unsat ? "UNSAT" : "SAT")
+                        << "\n";
+#else
+                    outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
+                        "UNSAT" : "SAT") << "\n";
+#endif
+                    cout << "  Time Taken to Check: " << duration.count() <<
+                        " microseconds\n\n";        
             	}
 
                 cur_bnd++;
             }
 
-	    if (print) outs() << "=============================================\n";
             return unsat;
 	}
 
@@ -153,32 +158,33 @@ namespace ufo {
         bool exploreTracesIncremental(int cur_bnd, int bnd, bool print = false) {
             // Print some diagnostic information
             if (print) {
-		outs() << "=============================================\n";
-		outs() << "Explore Traces Incremental Mode: \n";
+		outs() << "EXPLORE TRACES IN INCREMENTAL MODE\n\n";
                 outs() << "PROGRAM ENCODING:\n";
                 r.print();
                 outs() << "DIAGNOSTIC INFORMATION:\n";
             }
-	    outs() << "bound " << cur_bnd << " to " << bnd << "\n";
+            
             bool unsat = true;
 	    u.reset();
 
-            // Explore traces and check if any of the traces are satisfiable
-	    // Expression for initial conditions before the loop
-	    Expr initialConditions = fc->body;
-	    for (int i = 0; i < fc->dstVars.size(); i++) {
+	    // Add initial conditions to SMT utils expression factory
+            Expr body = fc->body;
+	    
+            for (int i = 0; i < fc->dstVars.size(); i++) {
 		Expr name = mkTerm<string>("v_" + to_string(i), e);
 		Expr var = cloneVar(fc->dstVars[i], name);
-		initialConditions = replaceAll(initialConditions, fc->dstVars[i], var);
-	    }
-	    int k = 0;
-			
-	    u.addExpr(initialConditions); // add initial conditions
+		body = replaceAll(body, fc->dstVars[i], var);
+	    }            
+	    
+            Expr prevLoopBody = body; 
+            u.addExpr(body);
 	    u.push();
 
-            Expr prevLoopBody = initialConditions;
+            // Explore traces and check if any of the traces are satisfiable
+            int k = 0;
+
 	    while (unsat && k <= bnd) {
-		Expr bmc_formula = prevLoopBody; // BMC formula includes the initial conditions
+		Expr bmc_formula = prevLoopBody;
 
 		// Expression for loop body
 		if (k >= 1) {
@@ -218,27 +224,30 @@ namespace ufo {
 
                 bmc_formula = mk<AND>(bmc_formula, assertBody); 
 		u.addExpr(assertBody);
-		outs() << "adding" << *assertBody << "\n";
-		auto start = high_resolution_clock::now();
+		
+                auto start = high_resolution_clock::now();
 		unsat = !u.check();
-		// Remove condition for assertion after the loop
-		u.pop();
+		u.pop(); // Remove bad condition from SMT utils expression factory
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<microseconds>(stop - start);
-		cout << "TIme taken to check BMC formula: " << duration.count() << " microseconds\n";
+                
                 // Print some diagnostic information
                 if (print) {
-                    //outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
-                    //    "UNSAT" : "SAT") << "\n";
+#ifdef PRINT_BMC_FORMULA
                     outs() << "  BMC Formula (k=" << k << "):\n    " <<
-			*bmc_formula << "\n" << " (" << (unsat ? "UNSAT" : "SAT") << ")\n\n";
-                }
+			*bmc_formula << "\n  Result: " << (unsat ? "UNSAT" : "SAT")
+                        << "\n";
+#else
+                    outs() << "  BMC Formula (k=" << k << "): " << (unsat ? 
+                        "UNSAT" : "SAT") << "\n";
+#endif
+                    cout << "  Time Taken to Check: " << duration.count() <<
+                        " microseconds\n\n";        
+            	}
 
                 k++;
             }
 	    
-	    if (print) outs() << "=============================================\n\n";
-
             return unsat;
         }
     };
@@ -253,9 +262,9 @@ namespace ufo {
 
         // Explore the possible traces between the two bounds
 	BndExpl bndExpl(efac, ruleManager);
-        bndExpl.exploreTraces(bnd1, bnd2, false);
-	cout << "\n";
-	bndExpl.exploreTracesIncremental(bnd1, bnd2, false);
+        //bndExpl.exploreTracesNormal(bnd1, bnd2, true);
+	//cout << "\n";
+	bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
 
         // TODO: Report something? (might need to change the return type)
     }
