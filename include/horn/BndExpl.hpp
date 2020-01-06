@@ -14,7 +14,7 @@ using namespace std;
 using namespace boost;
 using namespace std::chrono;
 
-// This macro ensures that printed output includes BMC formula
+// This macro ensures that printed output includes the BMC formula itself
 //#define PRINT_BMC_FORMULA
 
 namespace ufo {
@@ -61,6 +61,63 @@ namespace ufo {
                 exit(0);
             }
         }
+        
+        // Construct the INIT clause of the CHCs encoded in private variable r
+        Expr constructInit() {
+            Expr body = fc->body;
+            
+            for (int i = 0; i < fc->dstVars.size(); i++) {
+                Expr name = mkTerm<string>("v_" + to_string(i), e);
+                Expr var = cloneVar(fc->dstVars[i], name);
+                body = replaceAll(body, fc->dstVars[i], var);
+            }
+             
+            return body;
+        }
+
+        // Unroll the TR clause of the CHCs encoded in private variable r
+        Expr unrollTransitionRelation(int cur_bnd, Expr bmc_formula) {
+            Expr body = tr->body;
+            ExprVector srcVars = tr->srcVars;
+            ExprVector dstVars = tr->dstVars;
+
+            for (int k = 0; k < cur_bnd; k++) {
+                for (int i = 0; i < dstVars.size(); i++) {
+                    int num = k * dstVars.size() + srcVars.size() + i;
+                    Expr name = mkTerm<string>("v_" + to_string(num), e);
+                    Expr var = cloneVar(dstVars[i], name);
+                    body = replaceAll(body, dstVars[i], var);
+                    dstVars[i] = var;
+                }
+
+                for (int i = 0; i < srcVars.size(); i++) {
+                    int num = k * dstVars.size() + i;
+                    Expr name = mkTerm<string>("v_" + to_string(num), e);
+                    Expr var = cloneVar(srcVars[i], name);
+                    body = replaceAll(body, srcVars[i], var);
+                    srcVars[i] = var;
+                }
+
+                bmc_formula = mk<AND>(bmc_formula, body);
+            }
+
+            return bmc_formula;
+        }
+
+        // Construct the BAD clause of the CHCs encoded in private variable r
+        Expr constructBad(int cur_bnd, Expr bmc_formula) {
+            Expr body = qr->body;
+            
+            for (int i = 0; i < qr->srcVars.size(); i++) {  
+                int num = (cur_bnd - 1) * tr->dstVars.size() +
+                    tr->srcVars.size() + i; 
+                Expr name = mkTerm<string>("v_" + to_string(num), e);
+                Expr var = cloneVar(qr->srcVars[i], name);
+                body = replaceAll(body, qr->srcVars[i], var);
+            }
+            
+            return mk<AND>(bmc_formula, body);
+        }
 
         public:
 
@@ -82,53 +139,11 @@ namespace ufo {
 
             // Explore traces and check if any of the traces are satisfiable
             while (unsat && cur_bnd <= bnd) {
-                Expr body = fc->body;
-                
-                for (int i = 0; i < fc->dstVars.size(); i++) {
-                    Expr name = mkTerm<string>("v_" + to_string(i), e);
-                    Expr var = cloneVar(fc->dstVars[i], name);
-                    body = replaceAll(body, fc->dstVars[i], var);
-                }
-                 
-                Expr bmc_formula = body;
-
-                body = tr->body;
-                ExprVector srcVars = tr->srcVars;
-                ExprVector dstVars = tr->dstVars;
-
-                for (int k = 0; k < cur_bnd; k++) {
-                    for (int i = 0; i < dstVars.size(); i++) {
-                        int num = k * dstVars.size() + srcVars.size() + i;
-                        Expr name = mkTerm<string>("v_" + to_string(num), e);
-                        Expr var = cloneVar(dstVars[i], name);
-                        body = replaceAll(body, dstVars[i], var);
-                        dstVars[i] = var;
-                    }
-
-                    for (int i = 0; i < srcVars.size(); i++) {
-                        int num = k * dstVars.size() + i;
-                        Expr name = mkTerm<string>("v_" + to_string(num), e);
-                        Expr var = cloneVar(srcVars[i], name);
-                        body = replaceAll(body, srcVars[i], var);
-                        srcVars[i] = var;
-                    }
-
-                    bmc_formula = mk<AND>(bmc_formula, body);
-                }
-
-                body = qr->body;
-                
-                for (int i = 0; i < qr->srcVars.size(); i++) {  
-                    int num = (cur_bnd - 1) * tr->dstVars.size() +
-                        tr->srcVars.size() + i; 
-                    Expr name = mkTerm<string>("v_" + to_string(num), e);
-                    Expr var = cloneVar(qr->srcVars[i], name);
-                    body = replaceAll(body, qr->srcVars[i], var);
-                }
-                
-                bmc_formula = mk<AND>(bmc_formula, body);
-
-		auto start = high_resolution_clock::now();
+                Expr bmc_formula = constructInit();
+                bmc_formula = unrollTransitionRelation(cur_bnd, bmc_formula);
+                bmc_formula = constructBad(cur_bnd, bmc_formula);
+		
+                auto start = high_resolution_clock::now();
                 unsat = !u.isSat(bmc_formula);
 		auto stop = high_resolution_clock::now();
 		auto duration = duration_cast<microseconds>(stop - start);
@@ -262,9 +277,9 @@ namespace ufo {
 
         // Explore the possible traces between the two bounds
 	BndExpl bndExpl(efac, ruleManager);
-        //bndExpl.exploreTracesNormal(bnd1, bnd2, true);
+        bndExpl.exploreTracesNormal(bnd1, bnd2, true);
 	//cout << "\n";
-	bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
+	//bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
 
         // TODO: Report something? (might need to change the return type)
     }
