@@ -15,7 +15,7 @@ using namespace boost;
 using namespace std::chrono;
 
 // This macro ensures that printed output includes the BMC formula itself
-//#define PRINT_BMC_FORMULA
+#define PRINT_BMC_FORMULA
 
 namespace ufo {
     class BndExpl {
@@ -125,7 +125,7 @@ namespace ufo {
             r(ruleManager) { checkPrerequisites(); }
 
         // Explore the set of possible traces between the current bound and the
-        // given bound, and return true if no trace is satisfiable
+        // given bound, and return true if no trace is satisfiable (NORMAL MODE)
         bool exploreTracesNormal(int cur_bnd, int bnd, bool print = false) {
             // Print some diagnostic information
             if (print) {
@@ -151,7 +151,7 @@ namespace ufo {
                 // Print some diagnostic information
                 if (print) {
 #ifdef PRINT_BMC_FORMULA
-                    outs() << "  BMC Formula (k=" << cur_bnd << "):\n    " <<
+                    outs() << "  BMC Formula (k=" << cur_bnd << "):\n  " <<
 			*bmc_formula << "\n  Result: " << (unsat ? "UNSAT" : "SAT")
                         << "\n";
 #else
@@ -169,7 +169,8 @@ namespace ufo {
 	}
 
         // Explore the set of possible traces between the current bound and the
-        // given bound, and return true if no trace is satisfiable
+        // given bound, and return true if no trace is satisfiable (INCREMENTAL
+        // MODE)
         bool exploreTracesIncremental(int cur_bnd, int bnd, bool print = false) {
             // Print some diagnostic information
             if (print) {
@@ -180,87 +181,98 @@ namespace ufo {
             }
             
             bool unsat = true;
-	    u.reset();
+            bool first_run = true;
 
-	    // Add initial conditions to SMT utils expression factory
-            Expr body = fc->body;
-	    
-            for (int i = 0; i < fc->dstVars.size(); i++) {
-		Expr name = mkTerm<string>("v_" + to_string(i), e);
-		Expr var = cloneVar(fc->dstVars[i], name);
-		body = replaceAll(body, fc->dstVars[i], var);
-	    }            
-	    
-            Expr prevLoopBody = body; 
-            u.addExpr(body);
-	    u.push();
+	    // Add the initial conditions to the BMC formula
+            Expr bmc_formula = constructInit();
+            bmc_formula = unrollTransitionRelation(cur_bnd - 1, bmc_formula);
+            Expr prev_bmc_formula = bmc_formula;
+            
+            auto start1 = high_resolution_clock::now();
+            u.reset();
+            u.addExpr(bmc_formula);
+            u.push();
+            auto stop1 = high_resolution_clock::now();
 
             // Explore traces and check if any of the traces are satisfiable
-            int k = 0;
+	    while (unsat && cur_bnd <= bnd) {
+                bmc_formula = prev_bmc_formula;
+                
+                // Ensure that the scope of local variables start2 and stop2 is
+                // outside the if statement below
+                auto start2 = high_resolution_clock::now();
+                auto stop2 = start2;
 
-	    while (unsat && k <= bnd) {
-		Expr bmc_formula = prevLoopBody;
-
-		// Expression for loop body
-		if (k >= 1) {
-    		    Expr loopBody = tr->body;
+		if (cur_bnd >= 1) {
+    		    Expr body = tr->body;
                     ExprVector srcVars = tr->srcVars;
                     ExprVector dstVars = tr->dstVars;
+
     	            for (int i = 0; i < dstVars.size(); i++) {
-        	    	int num = (k-1) * dstVars.size() + srcVars.size() + i;
+        	    	int num = (cur_bnd - 1) * dstVars.size() + srcVars.size()
+                            + i;
     			Expr name = mkTerm<string>("v_" + to_string(num), e);
                 	Expr var = cloneVar(dstVars[i], name);
-                  	loopBody = replaceAll(loopBody, dstVars[i], var);
+                  	body = replaceAll(body, dstVars[i], var);
                       	dstVars[i] = var;
                     }
 
              	    for (int i = 0; i < srcVars.size(); i++) {
-               	        int num = (k-1) * srcVars.size() + i;
+               	        int num = (cur_bnd - 1) * srcVars.size() + i;
                    	Expr name = mkTerm<string>("v_" + to_string(num), e);
                        	Expr var = cloneVar(srcVars[i], name);
-                   	loopBody = replaceAll(loopBody, srcVars[i], var);
+                   	body = replaceAll(body, srcVars[i], var);
                        	srcVars[i] = var;
                     }
-                    bmc_formula = mk<AND>(bmc_formula, loopBody);
-    		    prevLoopBody = bmc_formula;
-		    // Add conditions for loop body and save the state
-		    u.addExpr(loopBody);
+
+                    bmc_formula = mk<AND>(bmc_formula, body);
+		    
+                    start2 = high_resolution_clock::now();
+                    u.addExpr(body);
 		    u.push();
+                    stop2 = high_resolution_clock::now();
 		}
 
-                Expr assertBody = qr->body;
+                // Add the assertion condition to the BMC formula
+                prev_bmc_formula = bmc_formula; 
+                Expr body = qr->body;
+                
                 for (int i = 0; i < qr->srcVars.size(); i++) {  
-                    int num = (k - 1) * tr->srcVars.size() +
+                    int num = (cur_bnd - 1) * tr->dstVars.size() +
                         tr->srcVars.size() + i; 
                     Expr name = mkTerm<string>("v_" + to_string(num), e);
                     Expr var = cloneVar(qr->srcVars[i], name);
-                    assertBody = replaceAll(assertBody, qr->srcVars[i], var);
+                    body = replaceAll(body, qr->srcVars[i], var);
                 }
+                
+                bmc_formula = mk<AND>(bmc_formula, body);
 
-                bmc_formula = mk<AND>(bmc_formula, assertBody); 
-		u.addExpr(assertBody);
-		
-                auto start = high_resolution_clock::now();
+                auto start3 = high_resolution_clock::now();
+                u.addExpr(body);
 		unsat = !u.check();
-		u.pop(); // Remove bad condition from SMT utils expression factory
-		auto stop = high_resolution_clock::now();
-		auto duration = duration_cast<microseconds>(stop - start);
+		u.pop(); // Remove the BAD clause from SMT utils
+		auto stop3 = high_resolution_clock::now();	
+                
+                auto duration = duration_cast<microseconds>(first_run ? stop1 -
+                        start1 + stop2 - start2 + stop3 - start3 : stop2 - start2 +
+                        stop3 - start3);
+                first_run = false;
                 
                 // Print some diagnostic information
                 if (print) {
 #ifdef PRINT_BMC_FORMULA
-                    outs() << "  BMC Formula (k=" << k << "):\n    " <<
+                    outs() << "  BMC Formula (k=" << cur_bnd << "):\n  " <<
 			*bmc_formula << "\n  Result: " << (unsat ? "UNSAT" : "SAT")
                         << "\n";
 #else
-                    outs() << "  BMC Formula (k=" << k << "): " << (unsat ? 
+                    outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
                         "UNSAT" : "SAT") << "\n";
-#endif
-                    cout << "  Time Taken to Check: " << duration.count() <<
+#endif   
+                    cout << "  Time Taken to Check: " << duration.count() << 
                         " microseconds\n\n";        
             	}
 
-                k++;
+                cur_bnd++;
             }
 	    
             return unsat;
@@ -278,8 +290,7 @@ namespace ufo {
         // Explore the possible traces between the two bounds
 	BndExpl bndExpl(efac, ruleManager);
         bndExpl.exploreTracesNormal(bnd1, bnd2, true);
-	//cout << "\n";
-	//bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
+	bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
 
         // TODO: Report something? (might need to change the return type)
     }
