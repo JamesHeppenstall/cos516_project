@@ -15,7 +15,7 @@ using namespace boost;
 using namespace std::chrono;
 
 // This macro ensures that printed output includes the BMC formula itself
-#define PRINT_BMC_FORMULA
+//#define PRINT_BMC_FORMULA
 
 namespace ufo {
     class BndExpl {
@@ -280,7 +280,7 @@ namespace ufo {
     };
     
     // TODO: Unroll and check an SMT expression
-    inline void unrollAndCheck(string smt, int bnd1, int bnd2) {
+    inline void unrollAndCheck(string smt, int bnd1, int bnd2, int inc = false) {
         // Initialize the class with the CHCs 
         ExprFactory efac;
         EZ3 z3(efac); 
@@ -289,8 +289,11 @@ namespace ufo {
 
         // Explore the possible traces between the two bounds
 	BndExpl bndExpl(efac, ruleManager);
-        bndExpl.exploreTracesNormal(bnd1, bnd2, true);
-	bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
+        if (!inc) {
+            bndExpl.exploreTracesNormal(bnd1, bnd2, true);
+        } else {
+            bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
+        }
 
         // TODO: Report something? (might need to change the return type)
     }
