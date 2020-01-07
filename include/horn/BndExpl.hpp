@@ -280,6 +280,7 @@ namespace ufo {
             }
             
             bool unsat = true;
+            bool first_run = true;
 
 	    // Add the initial conditions to the BMC formula
             Expr bmc_formula = constructInit();
@@ -332,9 +333,54 @@ namespace ufo {
                 // invariant - if so, this interpolant proves correctness for all
                 // bounds k' > k
                 if (unsat && cur_bnd >= 1) {
+                    Expr init = constructInit(); 
+                    Expr body = constructTransitionRelation(0);
+                    Expr bad = constructBad(0);
+                    
+                    // Check that the initial condition is a safe inductive
+                    // invariant only once (as an optimization)
+                    if (first_run) { 
+                        Expr next_init = init;
+                        ExprVector srcVars = tr->srcVars;
+
+                        for (int i = 0; i < srcVars.size(); i++) {
+                            int num = srcVars.size() + i;
+                            Expr name = mkTerm<string>("v_" + to_string(num), e);
+                            Expr var = cloneVar(srcVars[i], name);
+                            next_init = replaceAll(next_init, srcVars[i], var);
+                        }
+
+                        // Check the TR clause of the encoded CHCs
+                        Expr inv_formula1 = mk<AND>(init, body);
+                        inv_formula1 = mk<AND>(inv_formula1, mk<NEG>(next_init));
+                        bool sat1 = v.isSat(inv_formula1);
+
+                        // Check the BAD clause of the encoded CHCs
+                        Expr inv_formula2 = mk<AND>(next_init, bad);
+                        bool sat2 = v.isSat(inv_formula2);
+
+                        // If the local variable sat is false then the initial
+                        // condition is a safe inductive invariant
+                        bool sat = sat1 || sat2;
+                        first_run = false; 
+
+                        if (print) {
+                            outs() << "  -> Initial Condition: " << *init << "\n"
+                                << "  -> Safe Inductive Invariant: " << (sat ?
+                                "NO" : "YES") << "\n";
+                        }
+                        
+                        if (!sat) {
+                            outs() << "\n  The initial condition " << *init << " is"
+                                << " a safe inductive invariant and thus proves"
+                                << " correctness for all k > " << cur_bnd << " by"
+                                << " induction\n";
+                            return unsat;
+                        }  
+                    }   
+                     
                     Expr itp = getItp(A, B);
                     Expr prev_itp = itp;
-                    Expr body = constructTransitionRelation(0);
                     
                     for (int i = 0; i < curVars.size(); i++) {
                         Expr name = mkTerm<string>("v_" + to_string(i), e);
@@ -342,10 +388,20 @@ namespace ufo {
                         prev_itp = replaceAll(prev_itp, curVars[i], var);
                     }
 
-                    // Check that the interpolant is a safe inductive invariant
-                    Expr inv_formula = mk<AND>(prev_itp, body);
-                    inv_formula = mk<AND>(inv_formula, mk<NEG>(itp));
-                    bool sat = v.isSat(inv_formula);
+                    // Check the INIT clause of the encoded CHCs 
+                    Expr inv_formula1 = mk<AND>(init, mk<NEG>(prev_itp));
+                    bool sat1 = v.isSat(inv_formula1);
+
+                    // Check the TR clause of the encoded CHCs
+                    Expr inv_formula2 = mk<AND>(prev_itp, body);
+                    inv_formula2 = mk<AND>(inv_formula2, mk<NEG>(itp));
+                    bool sat2 = v.isSat(inv_formula2);
+
+                    // Check the BAD clause of the encoded CHCs
+                    Expr inv_formula3 = mk<AND>(itp, bad);
+                    bool sat3 = v.isSat(inv_formula3);
+
+                    bool sat = sat1 || sat2 || sat3;
 
                     if (print) {
                         outs() << "  -> Interpolant: " << *itp << "\n  -> Safe "
