@@ -347,6 +347,14 @@ namespace ufo {
                             << "Inductive Invariant: " << (sat ? "NO" : "YES") <<
                             "\n\n";
                     }
+
+                    if (!sat) {
+                        outs() << "  The interpolant " << *itp << " is a safe " <<
+                            "inductive invariant and thus proves correctness for "
+                            << "all k > " << cur_bnd << " by induction\n";
+                        return unsat;
+                    }
+
                 }
  
                 cur_bnd++;
