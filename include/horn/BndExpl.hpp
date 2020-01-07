@@ -268,7 +268,62 @@ namespace ufo {
         }
 
         bool exploreTracesInterpolant(int cur_bnd, int bnd, bool print = false) {
-            return true;
+            // Print some diagnostic information
+            if (print) {
+		outs() << "EXPLORE TRACES IN INTERPOLANT MODE\n\n";
+                outs() << "PROGRAM ENCODING:\n";
+                r.print();
+                outs() << "DIAGNOSTIC INFORMATION:\n";
+            }
+            
+            bool unsat = true;
+
+	    // Add the initial conditions to the BMC formula
+            Expr bmc_formula = constructInit();
+            bmc_formula = unrollTransitionRelation(cur_bnd - 1, bmc_formula);
+            Expr prev_bmc_formula = bmc_formula;
+            
+            u.reset();
+            u.addExpr(bmc_formula);
+            u.push();
+
+            // Explore traces and check if any of the traces are satisfiable
+	    while (unsat && cur_bnd <= bnd) {
+                bmc_formula = prev_bmc_formula;
+
+		if (cur_bnd >= 1) {
+    		    Expr body = constructTransitionRelation(cur_bnd - 1);
+                    bmc_formula = mk<AND>(bmc_formula, body);
+		    
+                    u.addExpr(body);
+		    u.push();
+		}
+
+                // Add the assertion condition to the BMC formula
+                prev_bmc_formula = bmc_formula; 
+                Expr body = constructBad(cur_bnd - 1);
+                bmc_formula = mk<AND>(bmc_formula, body);
+
+                u.addExpr(body);
+		unsat = !u.check();
+		u.pop(); // Remove the BAD clause from SMT utils
+                
+                // Print some diagnostic information
+                if (print) {
+#ifdef PRINT_BMC_FORMULA
+                    outs() << "  BMC Formula (k=" << cur_bnd << "):\n  " <<
+			*bmc_formula << "\n  Result: " << (unsat ? "UNSAT" : "SAT")
+                        << "\n";
+#else
+                    outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
+                        "UNSAT" : "SAT") << "\n";
+#endif   
+            	}
+
+                cur_bnd++;
+            }
+	    
+            return unsat;
         }
     };
     
