@@ -313,14 +313,9 @@ namespace ufo {
                 
                 // Print some diagnostic information
                 if (print) {
-#ifdef PRINT_BMC_FORMULA
-                    outs() << "  BMC Formula (k=" << cur_bnd << "):\n  " <<
-			*bmc_formula << "\n  Result: " << (unsat ? "UNSAT" : "SAT")
-                        << "\n";
-#else
                     outs() << "  BMC Formula (k=" << cur_bnd << "): " << (unsat ? 
                         "UNSAT" : "SAT") << "\n";
-#endif   
+                    if (cur_bnd == 0) { outs() << "\n"; }
             	}
                 
                 // Generate an interpolant and check that it is a safe inductive
@@ -348,8 +343,9 @@ namespace ufo {
                     bool sat = v.isSat(inv_formula);
 
                     if (print) {
-                        outs() << "  Interpolant: " << *itp << "\n  Safe Inductive"
-                            << " Invariant: " << (sat ? "NO" : "YES") << "\n";
+                        outs() << "  -> Interpolant: " << *itp << "\n  -> Safe "
+                            << "Inductive Invariant: " << (sat ? "NO" : "YES") <<
+                            "\n\n";
                     }
                 }
  
