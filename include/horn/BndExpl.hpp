@@ -81,7 +81,7 @@ namespace ufo {
             Expr body = tr->body;
             ExprVector srcVars = tr->srcVars;
             ExprVector dstVars = tr->dstVars;
-            curVars.clear();
+            if (k == 0 && !curVars.empty()) { curVars.clear(); }
 
             for (int i = 0; i < dstVars.size(); i++) {
                 int num = k * dstVars.size() + srcVars.size() + i;
@@ -89,7 +89,7 @@ namespace ufo {
                 Expr var = cloneVar(dstVars[i], name);
                 body = replaceAll(body, dstVars[i], var);
                 dstVars[i] = var;
-                curVars.push_back(var);
+                if (k == 0) { curVars.push_back(var); }
             }
 
             for (int i = 0; i < srcVars.size(); i++) {
@@ -104,8 +104,8 @@ namespace ufo {
         }
         
         // Unroll the TR clause of the CHCs encoded in private variable r
-        Expr unrollTransitionRelation(int cur_bnd, Expr bmc_formula) {
-            for (int k = 0; k < cur_bnd; k++) {
+        Expr unrollTransitionRelation(int cur_bnd, Expr bmc_formula, int i = 0) {
+            for (int k = i; k < cur_bnd; k++) {
                 Expr body = constructTransitionRelation(k);
                 bmc_formula = mk<AND>(bmc_formula, body);
             }
@@ -285,6 +285,11 @@ namespace ufo {
             Expr bmc_formula = constructInit();
             bmc_formula = unrollTransitionRelation(cur_bnd - 1, bmc_formula);
             Expr prev_bmc_formula = bmc_formula;
+
+            // Construct expression A as defined in "Interpolation and SAT-based
+            // Model Checking" by McMillan (2003)
+            Expr A = constructInit();
+            A = unrollTransitionRelation(1, A);
             
             u.reset();
             u.addExpr(bmc_formula);
@@ -293,6 +298,11 @@ namespace ufo {
             // Explore traces and check if any of the traces are satisfiable
 	    while (unsat && cur_bnd <= bnd) {
                 bmc_formula = prev_bmc_formula;
+
+                // Construct expression B as defined in "Interpolation and SAT-
+                // based Model Checking" by McMillan (2003)
+                Expr B = constructBad(cur_bnd - 1);
+                B = unrollTransitionRelation(cur_bnd, B, 1);
 
 		if (cur_bnd >= 1) {
     		    Expr body = constructTransitionRelation(cur_bnd - 1);
@@ -322,17 +332,12 @@ namespace ufo {
                 // invariant - if so, this interpolant proves correctness for all
                 // bounds k' > k
                 if (unsat && cur_bnd >= 1) {
-                    Expr itp = getItp(prev_bmc_formula, body);
+                    Expr itp = getItp(A, B);
                     Expr prev_itp = itp;
-                    Expr body = constructTransitionRelation(cur_bnd - 1);
+                    Expr body = constructTransitionRelation(0);
                     
                     for (int i = 0; i < curVars.size(); i++) {
-                        string s = lexical_cast<string>(bind::name(curVars[i])
-                            .get());
-                        int num = atoi(&s.at(s.find("v_") + 2));
-                        int size = curVars.size();
-
-                        Expr name = mkTerm<string>("v_" + to_string(num - size), e);
+                        Expr name = mkTerm<string>("v_" + to_string(i), e);
                         Expr var = cloneVar(curVars[i], name);
                         prev_itp = replaceAll(prev_itp, curVars[i], var);
                     }
@@ -354,7 +359,6 @@ namespace ufo {
                             << "all k > " << cur_bnd << " by induction\n";
                         return unsat;
                     }
-
                 }
  
                 cur_bnd++;
