@@ -16,7 +16,7 @@ int main (int argc, char ** argv)
   if (argc > 2) lower = atoi(argv[1]);
   if (argc > 3) upper = atoi(argv[2]);
   
-  // getItpsAndCheck(string(argv[argc-1]), lower, upper);
+  getItpsAndCheck(string(argv[argc-1]), lower, upper);
   
   return 0;
 }

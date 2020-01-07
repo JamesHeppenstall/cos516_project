@@ -279,7 +279,7 @@ namespace ufo {
         }
     };
     
-    // TODO: Unroll and check an SMT expression
+    // Unroll and check an SMT expression
     inline void unrollAndCheck(string smt, int bnd1, int bnd2, int inc = false) {
         // Initialize the class with the CHCs 
         ExprFactory efac;
@@ -296,6 +296,14 @@ namespace ufo {
         }
 
         // TODO: Report something? (might need to change the return type)
+    }
+
+    inline void getItpsAndCheck(string smt, int bnd1, int bnd2) {
+        // Initialize the class with the CHCs
+        ExprFactory efac;
+        EZ3 z3(efac);
+        CHCs ruleManager(efac, z3);
+        ruleManager.parse(smt); 
     }
 }
 
