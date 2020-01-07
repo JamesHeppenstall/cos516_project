@@ -15,18 +15,19 @@ using namespace boost;
 using namespace std::chrono;
 
 // This macro ensures that printed output includes the BMC formula itself
-#define PRINT_BMC_FORMULA
+//#define PRINT_BMC_FORMULA
 
 namespace ufo {
     class BndExpl {
         private:
 
         ExprFactory &e;
-        SMTUtils u;
+        SMTUtils u, v;
         CHCs &r;
         HornRuleExt *tr;
         HornRuleExt *fc;
         HornRuleExt *qr;
+        ExprVector curVars;
         
         // Check that the form of the CHCs encoded in private variable r is valid
         void checkPrerequisites() {
@@ -80,6 +81,7 @@ namespace ufo {
             Expr body = tr->body;
             ExprVector srcVars = tr->srcVars;
             ExprVector dstVars = tr->dstVars;
+            curVars.clear();
 
             for (int i = 0; i < dstVars.size(); i++) {
                 int num = k * dstVars.size() + srcVars.size() + i;
@@ -87,6 +89,7 @@ namespace ufo {
                 Expr var = cloneVar(dstVars[i], name);
                 body = replaceAll(body, dstVars[i], var);
                 dstVars[i] = var;
+                curVars.push_back(var);
             }
 
             for (int i = 0; i < srcVars.size(); i++) {
@@ -139,7 +142,7 @@ namespace ufo {
 
         public:
 
-        BndExpl(ExprFactory &efac, CHCs &ruleManager) : e(efac), u(e),
+        BndExpl(ExprFactory &efac, CHCs &ruleManager) : e(efac), u(e), v(e),
             r(ruleManager) { checkPrerequisites(); }
 
         // Explore the set of possible traces between the current bound and the
@@ -306,7 +309,7 @@ namespace ufo {
 
                 u.addExpr(body);
 		unsat = !u.check();
-		u.pop(); // Remove the BAD clause from SMT utils
+		u.pop(); // Remove the BAD clause from SMT utils 
                 
                 // Print some diagnostic information
                 if (print) {
@@ -319,7 +322,37 @@ namespace ufo {
                         "UNSAT" : "SAT") << "\n";
 #endif   
             	}
+                
+                // Generate an interpolant and check that it is a safe inductive
+                // invariant - if so, this interpolant proves correctness for all
+                // bounds k' > k
+                if (unsat && cur_bnd >= 1) {
+                    Expr itp = getItp(prev_bmc_formula, body);
+                    Expr prev_itp = itp;
+                    Expr body = constructTransitionRelation(cur_bnd - 1);
+                    
+                    for (int i = 0; i < curVars.size(); i++) {
+                        string s = lexical_cast<string>(bind::name(curVars[i])
+                            .get());
+                        int num = atoi(&s.at(s.find("v_") + 2));
+                        int size = curVars.size();
 
+                        Expr name = mkTerm<string>("v_" + to_string(num - size), e);
+                        Expr var = cloneVar(curVars[i], name);
+                        prev_itp = replaceAll(prev_itp, curVars[i], var);
+                    }
+
+                    // Check that the interpolant is a safe inductive invariant
+                    Expr inv_formula = mk<AND>(prev_itp, body);
+                    inv_formula = mk<AND>(inv_formula, mk<NEG>(itp));
+                    bool sat = v.isSat(inv_formula);
+
+                    if (print) {
+                        outs() << "  Interpolant: " << *itp << "\n  Safe Inductive"
+                            << " Invariant: " << (sat ? "NO" : "YES") << "\n";
+                    }
+                }
+ 
                 cur_bnd++;
             }
 	    
