@@ -439,8 +439,6 @@ namespace ufo {
         } else {
             bndExpl.exploreTracesIncremental(bnd1, bnd2, true);
         }
-
-        // TODO: Report something? (might need to change the return type)
     }
 
     inline void getItpsAndCheck(string smt, int bnd1, int bnd2) {
