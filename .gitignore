@@ -14,9 +14,11 @@
 /seahorn-llvm/
 /gtags.files
 
+.DS_Store
 *.pdf
 *.tex
 *.pptx
+/docs/
 
 # Prerequisites
 *.d
