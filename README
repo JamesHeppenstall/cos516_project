@@ -1,0 +1,50 @@
+This file, README, describes the contents of every deliverable,	and more specifically how to reproduce the results presented in	the report.
+
+Contents of this zip file:
+
+	 jwmh_jiashuoz_cos516_project: all the code and test files.
+
+	 jwmh_jiashuoz_bmc.pptx: interim presentation ppt.
+
+	 jwmh_jiashuoz_bmc.pdf: final project report.
+
+	 README: current file.
+
+
+Code base in jwmh_jiashuoz_cos516_project:
+
+       Top level client module:
+       jwmh_jiashuoz_cos516_project/tools/BMC.cpp => BMC with normal/incremental mode
+       jwmh_jiashuoz_cos516_project/tools/BMCItp.cpp => BMC with support for generating interpolents and finding proofs
+
+       BMC module (core algorithm implemented in this file):
+       jwmh_jiashuoz_cos516_project/include/horn/BndExpl.hpp
+
+       Z3 support:
+       jwmh_jiashuoz_cos516_project/include/ae/SMTUtils.hpp
+
+       Benchmark test files(smt2):
+       jwmh_jiashuoz_cos516_project/bench_horn/
+       jwmh_jiashuoz_cos516_project/bench_horn_cex/
+
+       We also used functionality provided by other files in /include/ae/ and /include/horn/.
+
+
+Instructions for reproducing the results:
+
+1. First follow	 the installation instructions in jwmh_jiashuoz_cos516_project/README.md, which will build required dependencies(LLVM and Z3) and our project.
+2. After step 1, a build/ directory will be created in top level directory. The build/ directory contains the executables:
+   	 build/tools/bmc
+	 build/tools/itp
+
+3. Run the executables from build directory:
+       	 ./tools/bmc arg1 arg2 [path_to_test_file]
+	 ./tools/itp arg1 arg2 [path_to_test_file]
+	 arg1 and arg2 are the lower bound and upper bound for the unrolling steps. Refer to client module's main function for more details.
+	 
+4. To reproduce the exact results in the report:
+         cd to build directory
+	 ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
+	 ./tools/bmc 0 5 ../bench_horn/satexample/smt2
+	 ./tools/itp 0 5 ../bench_horn/unsatexample.smt2
+
