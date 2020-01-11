@@ -34,7 +34,7 @@ Code base in jwmh_jiashuoz_cos516_project:
 
 Instructions for reproducing the results:
 
-1. First follow	 the installation instructions in jwmh_jiashuoz_cos516_project/README.md, which will build required dependencies(LLVM and Z3) and our project.
+1. First follow	the installation instructions in jwmh_jiashuoz_cos516_project/README.md, which will build required dependencies(LLVM and Z3) and our project.
 2. After step 1, a build/ directory will be created in top level directory. The build/ directory contains the executables:
    	 build/tools/bmc
 	 build/tools/itp
@@ -47,6 +47,6 @@ Instructions for reproducing the results:
 4. To reproduce the exact results in the report:
          cd to build directory
 	 ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
-	 ./tools/bmc 0 5 ../bench_horn/satexample/smt2
+	 ./tools/bmc 0 5 ../bench_horn_cex/satexample/smt2
 	 ./tools/itp 0 5 ../bench_horn/unsatexample.smt2
 
