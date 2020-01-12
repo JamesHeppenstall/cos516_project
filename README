@@ -46,7 +46,7 @@ Instructions for reproducing the results:
      - ./tools/itp arg1 arg2 <path_to_test_file>
      - Note that arg1 and arg2 are the lower and upper bounds, respectively, for
        k (i.e. the unrolling steps). These arguments are optional and default to
-       0 and 1000 if not specified. Refer the client module for more details.
+       0 and 1000 if not specified. Refer to the client module for more details.
 
   4. To reproduce the exact results in the report from the build/ directory:
      - ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
