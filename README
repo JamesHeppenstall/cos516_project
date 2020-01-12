@@ -1,52 +1,59 @@
-Author: James Heppenstall (jwmh) and Josh Zhang (jiashuoz)
+Authors: James Heppenstall (jwmh) and Josh Zhang (jiashuoz)
 
-This README file describes the contents of every deliverable in project.zip and more specifically how to reproduce the results presented in the report.
+This README file describes the contents of every deliverable in project.zip
+and, more specifically, how to reproduce the results presented in the report.
 
 Contents of project.zip:
 
-	 jwmh_jiashuoz_cos516_project: all the code and test files.
+  1. jwmh_jiashuoz_cos516_project/ : All the code and test files
+  2. jwmh_jiashuoz_bmc.pptx        : Interim presentation
+  3. jwmh_jiashuoz_bmc.pdf         : Final project report
+  4. README                        : Current file
 
-	 jwmh_jiashuoz_bmc.pptx: interim presentation ppt.
+Codebase in jwmh_jiashuoz_cos516_project:
 
-	 jwmh_jiashuoz_bmc.pdf: final project report.
+  1. Top-level client module:
+     - tools/BMC.cpp    => BMC with normal/incremental mode
+     - tools/BMCItp.cpp => BMC with support for generating interpolants and
+                           finding proofs
 
-	 README: current file.
+  2. BMC module:
+     - include/horn/BndExpl.hpp => Core algorithms implemented in this file
 
+  3. Z3 support module:
+     - include/ae/SMTUtils.hpp => Utility class that interfaces with the Z3
+                                  SAT/SMT solver
 
-Code base in jwmh_jiashuoz_cos516_project:
+  4. SMT-LIBv2 Test Files:
+     - bench_horn/     => Examples with no counterexample for all k
+     - bench_horn_cex/ => Examples with a counterexample for some k
 
-       Top level client module:
-       jwmh_jiashuoz_cos516_project/tools/BMC.cpp => BMC with normal/incremental mode
-       jwmh_jiashuoz_cos516_project/tools/BMCItp.cpp => BMC with support for generating interpolents and finding proofs
-
-       BMC module (core algorithm implemented in this file):
-       jwmh_jiashuoz_cos516_project/include/horn/BndExpl.hpp
-
-       Z3 support:
-       jwmh_jiashuoz_cos516_project/include/ae/SMTUtils.hpp
-
-       Benchmark test files(smt2):
-       jwmh_jiashuoz_cos516_project/bench_horn/
-       jwmh_jiashuoz_cos516_project/bench_horn_cex/
-
-       We also used functionality provided by other files in /include/ae/ and /include/horn/.
-
+  We also relied on functionality provided by other files in include/ae/ and
+  include/horn/.
 
 Instructions for reproducing the results:
 
-1. First follow	the installation instructions in jwmh_jiashuoz_cos516_project/README.md, which will build required dependencies(LLVM and Z3) and our project.
-2. After step 1, a build/ directory will be created in top level directory. The build/ directory contains the executables:
-   	 build/tools/bmc
-	 build/tools/itp
+1. Follow the installation instructions in README.md, which will build the
+   required dependencies (LLVM, Z3, Boost, GMP) and our project.
 
-3. Run the executables from build directory:
-       	 ./tools/bmc arg1 arg2 [path_to_test_file]
-	 ./tools/itp arg1 arg2 [path_to_test_file]
-	 arg1 and arg2 are the lower bound and upper bound for the unrolling steps. Refer to client module's main function for more details.
-	 
-4. To reproduce the exact results in the report:
-         cd to build directory
-	 ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
-	 ./tools/bmc 0 5 ../bench_horn_cex/satexample.smt2
-	 ./tools/itp 0 5 ../bench_horn/unsatexample.smt2
+2. A directory build/ will be created in the top-level directory. The build/
+   directory contains the executables:
+   - build/tools/bmc
+   - build/tools/itp
 
+3. Run the executables from the build/ directory:
+   - ./tools/bmc arg1 arg2 <path_to_test_file>
+   - ./tools/itp arg1 arg2 <path_to_test_file>
+   - Note that arg1 and arg2 are the lower and upper bounds, respectively, for
+     k (i.e. the unrolling steps). These arguments are optional and default to
+     0 and 1000 if not specified. Refer the client module for more details
+
+4. To reproduce the exact results in the report from the build/ directory:
+   - ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
+   - ./tools/bmc 0 5 ../bench_horn_cex/satexample.smt2
+   - ./tools/itp ../bench_horn/unsatexample.smt2
+   - To toggle between normal mode and incremental mode, modify the last
+     argument of unrollAndCheck(...) in tools/BMC.cpp between true
+     (incremental mode enabled) and false (incremental mode disabled).
+   - One can also print the BMC formula for each value of k by uncommenting
+     the macro on line 18 of include/horn/BndExpl.cpp
