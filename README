@@ -33,27 +33,27 @@ Codebase in jwmh_jiashuoz_cos516_project:
 
 Instructions for reproducing the results:
 
-1. Follow the installation instructions in README.md, which will build the
-   required dependencies (LLVM, Z3, Boost, GMP) and our project.
+  1. Follow the installation instructions in README.md, which will build the
+     required dependencies (LLVM, Z3, Boost, GMP) and our project.
 
-2. A directory build/ will be created in the top-level directory. The build/
-   directory contains the executables:
-   - build/tools/bmc
-   - build/tools/itp
+  2. A directory build/ will be created in the top-level directory. The build/
+     directory contains the executables:
+     - build/tools/bmc
+     - build/tools/itp
 
-3. Run the executables from the build/ directory:
-   - ./tools/bmc arg1 arg2 <path_to_test_file>
-   - ./tools/itp arg1 arg2 <path_to_test_file>
-   - Note that arg1 and arg2 are the lower and upper bounds, respectively, for
-     k (i.e. the unrolling steps). These arguments are optional and default to
-     0 and 1000 if not specified. Refer the client module for more details.
+  3. Run the executables from the build/ directory:
+     - ./tools/bmc arg1 arg2 <path_to_test_file>
+     - ./tools/itp arg1 arg2 <path_to_test_file>
+     - Note that arg1 and arg2 are the lower and upper bounds, respectively, for
+       k (i.e. the unrolling steps). These arguments are optional and default to
+       0 and 1000 if not specified. Refer the client module for more details.
 
-4. To reproduce the exact results in the report from the build/ directory:
-   - ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
-   - ./tools/bmc 0 5 ../bench_horn_cex/satexample.smt2
-   - ./tools/itp ../bench_horn/unsatexample.smt2
-   - To toggle between normal mode and incremental mode, modify the last
-     argument of unrollAndCheck(...) in tools/BMC.cpp between true
-     (incremental mode enabled) and false (incremental mode disabled).
-   - One can also print the BMC formula for each value of k by uncommenting
-     the macro on line 18 of include/horn/BndExpl.cpp.
+  4. To reproduce the exact results in the report from the build/ directory:
+     - ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
+     - ./tools/bmc 0 5 ../bench_horn_cex/satexample.smt2
+     - ./tools/itp ../bench_horn/unsatexample.smt2
+     - To toggle between normal mode and incremental mode, modify the last
+       argument of unrollAndCheck(...) in tools/BMC.cpp between true
+       (incremental mode enabled) and false (incremental mode disabled).
+     - One can also print the BMC formula for each value of k by uncommenting
+       the macro on line 18 of include/horn/BndExpl.cpp.
