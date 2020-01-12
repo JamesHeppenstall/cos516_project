@@ -6,7 +6,7 @@ and, more specifically, how to reproduce the results presented in the report.
 Contents of project.zip:
 
   1. jwmh_jiashuoz_cos516_project/ : All the code and test files
-  2. jwmh_jiashuoz_bmc.pptx        : Interim presentation
+  2. jwmh_jiashuoz_bmc.pptx        : Interim project presentation
   3. jwmh_jiashuoz_bmc.pdf         : Final project report
   4. README                        : Current file
 
@@ -24,7 +24,7 @@ Codebase in jwmh_jiashuoz_cos516_project:
      - include/ae/SMTUtils.hpp => Utility class that interfaces with the Z3
                                   SAT/SMT solver
 
-  4. SMT-LIBv2 Test Files:
+  4. SMT-LIBv2 test files:
      - bench_horn/     => Examples with no counterexample for all k
      - bench_horn_cex/ => Examples with a counterexample for some k
 
@@ -46,7 +46,7 @@ Instructions for reproducing the results:
    - ./tools/itp arg1 arg2 <path_to_test_file>
    - Note that arg1 and arg2 are the lower and upper bounds, respectively, for
      k (i.e. the unrolling steps). These arguments are optional and default to
-     0 and 1000 if not specified. Refer the client module for more details
+     0 and 1000 if not specified. Refer the client module for more details.
 
 4. To reproduce the exact results in the report from the build/ directory:
    - ./tools/bmc 0 5 ../bench_horn/unsatexample.smt2
@@ -56,4 +56,4 @@ Instructions for reproducing the results:
      argument of unrollAndCheck(...) in tools/BMC.cpp between true
      (incremental mode enabled) and false (incremental mode disabled).
    - One can also print the BMC formula for each value of k by uncommenting
-     the macro on line 18 of include/horn/BndExpl.cpp
+     the macro on line 18 of include/horn/BndExpl.cpp.
